@@ -1,0 +1,37 @@
+name: Macro Monitor
+
+on:
+  schedule:
+    - cron: "30 12 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macro-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build history + check signal
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+        run: python monitor.py
+      - name: Commit data
+        run: |
+          git config user.name "macro-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add history.json
+          git commit -m "Update macro history $(date -u +%Y-%m-%d)" || echo "no change"
+          git push
